@@ -1,9 +1,17 @@
 ---
 name: tdd
-description: Test-driven development workflow using Vitest for unit and acceptance tests. Use when adding or changing non-trivial behavior and the user wants test-first or behavior-first development.
+description: Double-loop test-driven development for behavior-first changes in existing codebases. Use when adding or changing non-trivial behavior and the user wants tests to drive implementation.
 ---
 
-# TDD (Vitest)
+# TDD (Double-Loop)
+
+Use this skill to drive behavior through small vertical slices.
+
+Follow the repository's existing test stack, naming, helpers, fixtures, and conventions before introducing new patterns.
+
+Do not default to writing tests for everything. Prefer the smallest test surface that protects meaningful behavior.
+
+This workflow is especially aligned with the style from *Growing Object-Oriented Software, Guided by Tests*: drive behavior from the outside, use focused inner-loop tests only when they improve feedback, and let design emerge through small green refactoring cycles.
 
 ## Principle
 
@@ -12,77 +20,204 @@ Quality over quantity:
 - Test behavior that can break and matters.
 - Skip tests for trivial passthrough code, obvious type-only wrappers, and low-value assertions.
 - Prefer one strong test over many redundant ones.
+- Tests should verify behavior through public interfaces, not implementation details. A good test reads like a specification: it describes what the system does, not how it does it.
 
-## When To Write Tests
+## The Double Loop
 
-### Unit Tests
+Two nested feedback loops drive development:
 
-Write unit tests when at least one is true:
+```text
+┌─────────────────────────────────────────────────┐
+│  Write a failing acceptance test                │
+│                                                 │
+│    ┌───────────────────────────────────┐        │
+│    │  Write a failing unit test    ◄───┐        │
+│    │         │                         │        │
+│    │         ▼                         │        │
+│    │  Make the test pass               │        │
+│    │         │                         │        │
+│    │         ▼                         │        │
+│    │     Refactor ─────────────────────┘        │
+│    └───────────────────────────────────┘        │
+│                                                 │
+│  Acceptance test passes ✓                       │
+└─────────────────────────────────────────────────┘
+```
 
-- Non-trivial branching/decision logic
-- Validation/error paths with business impact
-- Transformations that are easy to regress
-- Orchestration behavior (which dependency is called, with what payload)
+Outer loop:
 
-Skip when:
+- Defines what done looks like from the outside.
+- Exercises the behavior through a public interface.
+- Goes green when the feature slice is wired and behaving correctly.
 
-- Simple CRUD/passthrough with no branching
-- Behavior already fully covered by acceptance tests
-- Test would only assert implementation details
+Inner loop:
 
-### Acceptance Tests
+- Drives logic one behavior at a time.
+- Uses focused tests with mocked boundaries when they improve feedback.
+- Exists only when the slice has enough logic to justify it.
 
-Write acceptance tests when at least one is true:
+## Decision Point: Do I Need the Inner Loop?
 
-- End-to-end flow through HTTP endpoints matters for correctness
-- Authorization/permissions logic needs verification
-- Multiple components must integrate correctly (route → use case → repository → database)
-- Data persistence through the full stack needs validation
+Before writing a unit test, ask:
 
-Skip when:
+- Does this slice have branching, validation, orchestration, or transformation logic? Write an inner-loop test.
+- Is it mostly wiring, mapping, or straightforward passthrough? Make the acceptance test pass directly.
 
-- The endpoint is a thin wrapper with no business logic
-- The behavior is already fully covered by unit tests and the integration risk is low
+The outer loop is the anchor. The inner loop is optional and should be used only when it gives better feedback.
 
-## Unit-Test TDD Loop
+## Anti-Pattern: Horizontal Slices
+
+Do not write all tests first and all implementation later.
+
+This usually creates brittle tests for imagined behavior instead of actual behavior.
+
+Wrong:
+
+- Write several acceptance tests
+- Write several unit tests
+- Implement everything after that
+
+Right:
+
+1. Write one failing acceptance test for one behavior slice.
+2. Add one failing unit test if the implementation logic is non-trivial.
+3. Make that slice pass.
+4. Refactor while green.
+5. Repeat for the next slice.
+
+## Workflow
+
+### 1. Write a Failing Acceptance Test
+
+Start with one test that describes the behavior from the outside.
+
+Examples of public interfaces include:
+
+- a command
+- a UI flow
+- a module entrypoint
+- a job entrypoint
+- an event handler
+- an application boundary
+
+Use the acceptance test to verify:
+
+- observable outcomes
+- caller-visible behavior
+- important error behavior
+- integration between collaborating parts when that is part of the contract
+
+The acceptance test is the anchor. It is what tells you the slice is actually done.
+
+### 2. Drive Internals with Unit Tests When Needed
+
+If the behavior has meaningful logic, enter the inner loop:
 
 1. Pick one behavior slice.
-2. Write one failing unit test.
+2. Write one failing test.
 3. Implement the minimum code to pass.
 4. Refactor without changing behavior.
-5. Repeat only for high-value behaviors.
+5. Repeat only for high-value behavior.
 
-### Unit Test Guidelines
+These tests should stay close to the module under test and avoid unnecessary integration with slow or unstable dependencies.
 
-- Keep tests next to the source (`*.unit.test.ts` or `__tests__/`).
-- Mock repositories and external systems; avoid DB/network in unit tests.
-- Use `vi.mock(...)` for external dependencies.
-- Focus on behavior groups with `describe`.
-- Validate call payloads and transaction usage.
-- Cover validation failures and key branch outcomes.
-- Prefer behavior assertions over internal function spying.
+## When To Write Unit Tests
 
-## Acceptance-Test TDD Loop
+Write them when at least one is true:
 
-1. Define the user-facing behavior (HTTP request → expected response + side effects).
-2. Write one failing acceptance test covering the happy path.
-3. Implement route, use case, and repository code to pass.
-4. Add tests for error paths, authorization, and edge cases.
-5. Refactor internals; acceptance tests should survive refactors.
+- Non-trivial branching or decision logic
+- Validation or error paths with business impact
+- Transformations that are easy to regress
+- Orchestration behavior where dependency calls are part of business intent
+- Edge cases that are easier to express narrowly
 
-### Acceptance Test Guidelines
+Usually skip them when:
 
-- Test the complete HTTP request/response cycle.
-- Use a real database; set up and tear down test data per test.
-- Use helper functions for test data creation (avoid raw DB inserts in test cases).
-- Verify authorization, permissions, and correct error codes.
-- Test cross-entity isolation (data from one tenant doesn't leak to another).
-- Clean up test data in `afterEach` to prevent test pollution.
+- The code is simple wiring or thin passthrough
+- The behavior is already fully protected by the acceptance test
+- The test would mostly assert implementation details
 
-## PR Checklist
+### 3. Make the Acceptance Test Green
 
-- Does each test protect meaningful behavior?
+If the inner loop is green but the acceptance test is still red, the missing piece is usually wiring:
+
+- interface registration or exposure
+- input parsing
+- error translation
+- mapper behavior
+- dependency connection
+
+Close that gap until the outer loop passes.
+
+### 4. Refactor
+
+Refactor only while green.
+
+Use both loops as the safety net.
+
+During interface design and refactoring, review:
+
+- [Deep Modules](references/deep-modules.md)
+- [Refactor Candidates](references/refactor-candidates.md)
+
+## Mocking Boundaries
+
+Mock true boundaries when needed:
+
+- databases
+- network calls
+- queues
+- file system
+- time
+- randomness
+- auth providers
+- payment providers
+- external services
+
+Do not mock:
+
+- your own pure logic inside the same behavior slice
+- implementation details that are not part of the behavior being verified
+
+Prefer assertions on outcomes over asserting every internal call.
+
+## Repo Adaptation
+
+Before writing tests, inspect the repo and follow existing patterns for:
+
+- test runner
+- assertion style
+- file naming and test location
+- factories and fixtures
+- mocking utilities
+- setup and teardown
+- helper utilities
+- verification commands
+
+If the repo already has a testing style, reuse it.
+
+If the repo has no clear pattern, introduce the smallest consistent approach that fits the stack.
+
+## Checklist Per Cycle
+
+- Test describes behavior, not implementation.
+- Test uses a public interface for the layer under test.
+- Code is minimal for this slice.
+- No speculative features were added.
+- Refactoring happens only while green.
+
+## Guardrails
+
+- Do not implement multiple slices at once.
+- Do not let unit tests replace the acceptance test.
+- Do not add low-value tests for trivial code.
+- Do not refactor while red.
+- Do not optimize coverage numbers over behavior protection.
+
+## Final Check
+
+- Does the acceptance test prove the behavior that matters?
+- Does each unit test help close a real gap?
 - Is any test redundant or brittle?
-- Would tests survive internal refactors?
-- Is the suite small but sufficient for regression safety?
-- Do acceptance tests cover authorization and error responses?
+- Would the tests survive internal refactors?
+- Is the suite small but sufficient?

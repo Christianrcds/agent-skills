@@ -1,17 +1,18 @@
 # Agent Skills
 
-A collection of reusable skills for Claude Code.
+A collection of reusable agent skills.
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| [grill-me](./grill-me/) | Stress-test a plan by challenging assumptions, risks, and edge cases |
-| [write-a-skill](./write-a-skill/) | Guide for creating new agent skills with proper structure |
-| [design-an-interface](./design-an-interface/) | Generate multiple interface designs and compare tradeoffs |
-| [tdd](./tdd/) | Test-driven development workflow with Vitest (unit + acceptance) |
+| [write-a-plan](./write-a-plan/) | Create a repo-native implementation plan for one coherent change before coding |
+| [implement-a-plan](./implement-a-plan/) | Execute an approved plan in small, verifiable slices and keep it current as work progresses |
+| [review-code](./review-code/) | Review code through maintainability, efficiency, project-guideline, and reliability lenses |
+| [tdd](./tdd/) | Double-loop TDD workflow for behavior-first changes using acceptance and unit tests |
 | [create-doc](./create-doc/) | Document completed features using final behavior, key files, and current flow only |
+| [write-a-skill](./write-a-skill/) | Guide for creating new agent skills with proper structure |
 
 ## Usage
 
-Add skills to your project's `.claude/skills/` directory or reference them directly.
+Copy a skill folder into your agent's skills directory or reference it directly from this repository.
